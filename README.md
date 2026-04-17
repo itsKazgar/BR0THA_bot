@@ -1,29 +1,34 @@
-# 🤖 BrothaBot v6.0
+# 🤖 BR0THA_bot v6.0
 
 **The Solana AI agent with a real personality.**  
-Trade. Chat. Research. Shop. Automate. All from Telegram.
+Trade. Chat. Research. Shop. Automate. Create wallets. All from Telegram.
+
+---
 
 ## 🧠 AI Architecture — The Brain
 
-BrothaBot runs a **cascading AI system** that automatically picks the best model based on your available RAM:
+BR0THA_bot runs a **cascading AI system** that automatically picks the best model based on your available RAM:
 
+```
 ┌─────────────────────────────────────────────────────────┐
 │                   ONE BRAIN — AI Router                 │
 ├─────────────────────────────────────────────────────────┤
 │  🔥 TITAN (40GB+)   Hermes 70B + Hermes 8B + OpenRouter │
 │                     → all 3 models collaborate          │
 │                                                         │
-│  🟢 Large  (16GB+)  Hermes 8B (local) first             │
-│  🟠 Medium  (8GB+)  Hermes 8B (full speed)              │
-│  🟡 Small   (4GB+)  Hermes 8B unlocked  ← sweet spot   │
+│  🟢 Large  (16GB+)  Hermes 8B — stable & fast           │
+│  🟠 Medium  (8GB+)  Hermes 8B — recommended minimum    │
+│  🟡 Small   (4GB+)  Hermes 8B — may be slow/unstable   │
 │                                                         │
 │  ☁️  Micro  (1.5GB)  OpenRouter cloud only              │
 │  💤 Nano    (0GB)   OpenRouter cloud only               │
 └─────────────────────────────────────────────────────────┘
 ```
 
+> ⚠️ **Hermes needs ~4 GB of *free* RAM** — not total. If your system is already using most of its memory, BR0THA_bot will automatically fall back to OpenRouter cloud AI. The `Medium (8GB+)` tier is the practical sweet spot for reliable local inference.
+
 **Hermes** runs 100% locally via [Ollama](https://ollama.com) — no data sent to the cloud.  
-**OpenRouter** is the cloud fallback when Hermes isn't available.
+**OpenRouter** is the cloud fallback when Hermes isn't available or RAM is too low.
 
 ### Installing Hermes (local AI)
 
@@ -35,14 +40,14 @@ brew install ollama           # macOS
 # Start Ollama
 ollama serve
 
-# Pull Hermes 8B (needs ~5 GB disk, ~4 GB RAM)
+# Pull Hermes 8B (needs ~5 GB disk, ~4 GB *free* RAM to run)
 ollama pull hermes3
 
 # Pull Hermes 70B TITAN (needs ~40 GB disk + RAM — optional)
 ollama pull hermes3:70b
 ```
 
-Then start BrothaBot — it auto-detects Hermes at startup.
+Then start BR0THA_bot — it auto-detects Hermes and your available RAM at startup.
 
 ### RAM Tier Check
 
@@ -55,10 +60,11 @@ Send `/system` for the full AI status dashboard.
 
 | Feature | Status |
 |---|---|
-| Hermes 8B local AI | ✅ (needs 4 GB free RAM) |
-| Hermes 70B TITAN | ✅ (needs 40 GB free RAM) |
-| OpenRouter cloud fallback | ✅ |
+| Hermes 8B local AI | ✅ (needs 4 GB *free* RAM) |
+| Hermes 70B TITAN | ✅ (needs 40 GB *free* RAM) |
+| OpenRouter cloud fallback | ✅ automatic |
 | Collaborative AI (all models) | ✅ TITAN tier |
+| **Solana wallet creation** | ✅ (requires trading module) |
 | Solana price alerts | ✅ |
 | Jupiter swaps | ✅ (requires trading module) |
 | DCA automation | ✅ |
@@ -69,11 +75,27 @@ Send `/system` for the full AI status dashboard.
 | Custom commands | ✅ |
 | Natural language intent parser | ✅ |
 | Button dashboards | ✅ |
-| BROTHA token live price | ✅ |
 | Web search | ✅ (DuckDuckGo) |
 | Crypto news feed | ✅ |
 | Fear & Greed index | ✅ |
 | Market dominance | ✅ |
+
+---
+
+## 🔑 Wallet Creation
+
+BR0THA_bot can generate a fresh Solana wallet for you on the spot — no browser or external tools needed.
+
+> Requires `trading.py` to be present alongside the main bot file.
+
+Just ask:
+- `"create me a wallet"`
+- `"make a new Solana wallet"`
+- `"generate a wallet address"`
+
+BR0THA_bot will generate a new keypair and display your **public address** and **private key** directly in Telegram. Once created, you can immediately use that address to receive SOL or tokens, set it as your agent wallet in `.env`, or start trading — all without leaving the chat.
+
+> ⚠️ BR0THA_bot never stores your private key. You are fully responsible for backing it up securely offline.
 
 ---
 
@@ -108,6 +130,8 @@ ollama serve
 ollama pull hermes3
 ```
 
+> **Note:** Hermes 8B needs roughly 4 GB of *free* RAM to run. If your system has 8 GB total, Hermes works best when other apps aren't eating into available memory. See the WSL tips below if you're on Windows.
+
 ### 4. Run
 
 ```bash
@@ -128,10 +152,9 @@ python3 telegram_bot.py
 | `OLLAMA_URL` | Optional | Default: `http://localhost:11434` |
 | `OLLAMA_MODEL` | Optional | Default: `hermes3` |
 | `OLLAMA_TITAN_MODEL` | Optional | Default: `hermes3:70b` |
-| `BROTHA_MINT` | Optional | Token CA (defaults to BROTHA) |
 | `BITREFILL_API_KEY` | Optional | For live gift card orders |
 | `X402_ENABLED` | Optional | Set `true` to enable micropayments |
-| `LOW_RAM` | Optional | Set `1` to force cloud-only mode |
+| `LOW_RAM` | Optional | Set `1` to skip Hermes entirely and use cloud-only mode |
 
 ---
 
@@ -143,7 +166,7 @@ python3 telegram_bot.py
 | `/hermes` | **Hermes AI status + live test** |
 | `/system` | Full AI + system dashboard |
 | `/status` | Your tier, balance, AI status |
-| `/price <coin>` | Live price (sol, btc, eth, brotha, etc.) |
+| `/price <coin>` | Live price (sol, btc, eth, etc.) |
 | `/market` | Full market dashboard |
 | `/balance <wallet>` | Check any Solana wallet |
 | `/giftcard <brand> <amount>` | Buy a gift card with crypto |
@@ -153,6 +176,7 @@ python3 telegram_bot.py
 | `/health` | Owner: server health dashboard |
 
 **Natural language** — just type what you want:
+- `"create me a wallet"`
 - `"buy 0.1 SOL of bonk"`
 - `"alert me when SOL hits 200"`
 - `"send 0.5 SOL privately"`
@@ -164,8 +188,10 @@ python3 telegram_bot.py
 ## 🤖 How Hermes Integration Works
 
 ```python
-# 1. Bot starts → detects Ollama + checks RAM
+# 1. Bot starts → detects Ollama + checks free RAM
 def detect_ollama() -> tuple[bool, list]:
+    if os.getenv("LOW_RAM") == "1":
+        return False, []   # skip Hermes entirely
     ...
 
 # 2. Every message routes through the unified brain
@@ -173,27 +199,27 @@ def ask(prompt, tier, history, agent, collaborative):
     ram = get_ram_info()
 
     # TITAN MODE — all models collaborate
-    if collaborative and ram["can_run_all"]:
-        return ask_collaborative(...)   # Hermes 8B + 70B + OpenRouter
+    if collaborative and ram["can_run_all"]:        # needs 40 GB free
+        return ask_collaborative(...)
 
-    # LOCAL — Hermes 8B runs on your machine
+    # LOCAL — Hermes 8B (needs 4 GB free RAM)
     if ram["can_run_hermes"] and USE_LOCAL_AI:
         reply = call_hermes(prompt, ...)
         if reply:
             return reply   # fast, local, private
 
-    # CLOUD FALLBACK — OpenRouter
+    # CLOUD FALLBACK — always available
     return call_openrouter(prompt, ...)
 
-# 3. call_hermes() has built-in RAM checks + graceful fallback
+# 3. call_hermes() checks free RAM before every call
 def call_hermes(prompt, system, history, model):
     ram = get_ram_info()
-    if not ram["can_run_hermes"]:
-        return None   # caller falls back to OpenRouter
+    if not ram["can_run_hermes"]:   # < 4 GB free
+        return None                 # silently falls back to cloud
     ...
 ```
 
-The bot **never crashes** if Hermes is offline — it silently falls back to OpenRouter.
+BR0THA_bot **never crashes** if Hermes is offline or RAM is too low — it silently falls back to OpenRouter.
 
 ---
 
@@ -201,8 +227,8 @@ The bot **never crashes** if Hermes is offline — it silently falls back to Ope
 
 ```
 BR0THA_bot/
-├── telegram_bot.py     # Main bot (this file)
-├── trading.py          # Jupiter swap + wallet management (optional)
+├── telegram_bot.py     # Main bot
+├── trading.py          # Jupiter swap + wallet creation (optional)
 ├── requirements.txt    # Python dependencies
 ├── .env.example        # Config template
 ├── .gitignore
@@ -219,13 +245,13 @@ If you're running on WSL with limited RAM:
 ```ini
 # ~/.wslconfig
 [wsl2]
-memory=8GB      # give WSL 8 GB for Hermes 8B
+memory=8GB      # give WSL 8 GB so Hermes 8B has room to breathe
 processors=4
 ```
 
 Then: `wsl --shutdown` and restart.
 
-Or force cloud-only mode:
+Or skip Hermes entirely and run cloud-only:
 ```
 LOW_RAM=1
 ```
