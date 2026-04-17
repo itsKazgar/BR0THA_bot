@@ -250,14 +250,6 @@ Optional (for local AI):
 
 ---
 
-## 🪙 BROTHA Token
-
-- **Contract:** `3Zz6oGYdPdtwukwxLSvpJcUSuFgABpeZo2kGURtApump`
-- **Chart:** [dexscreener.com/solana/3Zz6...](https://dexscreener.com/solana/3Zz6oGYdPdtwukwxLSvpJcUSuFgABpeZo2kGURtApump)
-- **Buy:** [pump.fun](https://pump.fun/coin/3Zz6oGYdPdtwukwxLSvpJcUSuFgABpeZo2kGURtApump)
-
----
-
 ## 📄 License
 
 MIT — use it, fork it, build on it.
