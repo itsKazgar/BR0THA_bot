@@ -5,6 +5,7 @@ Fixed: duplicate routes, /status shape, POST /votes, POST /keys, /env/update
 Run: uvicorn brotha_api:app --host 0.0.0.0 --port 8000 --reload
 """
 
+from emergency_agent import install_emergency_handler
 import os, sys, sqlite3, json, time, subprocess, random
 from datetime import datetime
 from pathlib import Path
@@ -14,11 +15,14 @@ sys.path.insert(0, str(BOT_DIR))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
+from emergency_agent import install_emergency_handler
 from dotenv import load_dotenv
 
 load_dotenv(BOT_DIR / ".env", override=True)
+install_emergency_handler()
 
 # ── lazy imports ───────────────────────────────────────────────────────────────
 try:
@@ -41,6 +45,10 @@ DB_PATH  = BOT_DIR / "data" / "agent.db"
 ENV_PATH = BOT_DIR / ".env"
 
 app = FastAPI(title="BR0THA API", version="2.0")
+
+@app.get("/")
+def dashboard():
+    return FileResponse("brotha_dashboard.html")
 
 app.add_middleware(
     CORSMiddleware,
@@ -88,7 +96,7 @@ def bot_running() -> bool:
         import psutil
         for proc in psutil.process_iter(["cmdline"]):
             cmdline = " ".join(proc.info["cmdline"] or [])
-            if "loop.py" in cmdline or "telegram_bot.py" in cmdline:
+            if "loop.py" in cmdline or "telegram_bot.py" in cmdline or "start.py" in cmdline or "trader.py" in cmdline:
                 return True
     except:
         pass
@@ -115,45 +123,42 @@ def startup():
 @app.get("/status")
 def get_status():
     fg = fear_and_greed()
-
-    # open positions for the positions table
     positions = []
     trade_count = 0
+    balance = 100.0
+    total_pnl = 0.0
     try:
-        with db() as conn:
-            rows = conn.execute(
-                "SELECT token, entry_price, size_usd, pnl_pct, 'open' "
-                "FROM positions WHERE status='OPEN'"
-            ).fetchall()
-            for r in rows:
+        import sqlite3, json as _json
+        _db = sqlite3.connect("core/brain.db")
+        _row = _db.execute("SELECT data FROM state WHERE agent='trader'").fetchone()
+        _db.close()
+        if _row:
+            _data = _json.loads(_row[0])
+            balance = round(_data.get("balance", 100.0), 2)
+            total_pnl = round(_data.get("total_pnl", 0.0), 2)
+            trade_count = _data.get("trades", 0)
+            for _mint, _pos in _data.get("positions", {}).items():
                 positions.append({
-                    "symbol":   r[0],
-                    "strategy": "council",
-                    "amount":   round((r[2] or 0) / max(r[1] or 1, 0.0001), 4),
-                    "pnl":      round(r[3] or 0, 2),
-                    "status":   r[4],
+                    "symbol":   _pos.get("name", _mint[:8]),
+                    "strategy": "scalp" if _pos.get("hold_cap", 120) <= 20 else "swing",
+                    "amount":   round(_pos.get("size_usd", 0), 2),
+                    "pnl":      round(_pos.get("pnl_usd", 0), 2),
+                    "status":   "open",
                 })
-            trade_count = len(rows)
-    except:
-        pass
-
+    except Exception as _e:
+        print(f"[status] error: {_e}")
     return {
-        # fields the dashboard stats cards read
-        "trades":   trade_count,
-        "version":  "2.0",
-        "positions": positions,
-        # extra context
+        "trades":        trade_count,
+        "version":       "2.0",
+        "positions":     positions,
+        "balance":       balance,
+        "total_pnl":     total_pnl,
         "running":       bot_running(),
         "fear_greed":    fg["value"],
         "fg_label":      fg["label"],
-        "paper_trading": COUNCIL_CONFIG.get("paper_trading", True) if PERSONAS_OK else True,
+        "paper_trading": True,
         "ts":            datetime.utcnow().isoformat(),
     }
-
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#  VOTES  —  GET returns history, POST runs a live council vote
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @app.get("/votes")
 def get_vote_log(limit: int = 20):
@@ -289,26 +294,34 @@ async def trade_swap(req: SwapRequest):
         from trading import jupiter_swap
         return await jupiter_swap(req.user_id, req.from_token, req.to_token, req.amount_sol)
     except ImportError:
-        return {"ok": False, "error": "trading.py not available — is it in ~/BR0THA_bot/?"}
+        return {"ok": False, "error": "trading.py not available — is it in ~/BR0THER-H00D/?"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
 @app.get("/trade/history")
 def trade_history(user_id: str = "dashboard", limit: int = 20):
     try:
-        with db() as conn:
-            rows = conn.execute(
-                "SELECT token_symbol, action, amount_sol, price, pnl_sol, signature, ts "
-                "FROM trade_history WHERE user_id=? ORDER BY ts DESC LIMIT ?",
-                (user_id, limit),
-            ).fetchall()
+        import sqlite3, json
+        brain_db = sqlite3.connect("core/brain.db")
+        row = brain_db.execute("SELECT data FROM state WHERE agent='trader'").fetchone()
+        brain_db.close()
+        if not row:
+            return {"history": []}
+        data = json.loads(row[0])
+        history = data.get("history", [])[-limit:][::-1]
         return {"history": [
-            {"symbol": r[0], "action": r[1], "amount": r[2],
-             "price": r[3], "pnl": r[4] or 0, "sig": r[5], "ts": r[6]}
-            for r in rows
+            {
+                "symbol": t.get("name", "?"),
+                "action": "SELL",
+                "amount": round(t.get("size_usd", 0), 2),
+                "price":  round(t.get("exit", 0), 8),
+                "pnl":    round(t.get("pnl_usd", 0), 4),
+                "reason": t.get("reason", ""),
+                "ts":     t.get("ts", "")
+            }
+            for t in history
         ]}
     except Exception as e:
-        # table may not exist yet — return empty gracefully
         return {"history": [], "note": str(e)}
 
 
@@ -485,6 +498,21 @@ TRACKED_KEYS = {
     "WALLET_PRIVATE_KEY_B58",
 }
 
+def get_all_keys():
+    """Returns TRACKED_KEYS plus any custom keys saved in .env"""
+    custom = set()
+    try:
+        with open(ENV_PATH) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    key = line.split("=")[0].strip()
+                    if key not in TRACKED_KEYS:
+                        custom.add(key)
+    except:
+        pass
+    return TRACKED_KEYS | custom
+
 @app.get("/keys")
 def get_keys():
     result = {}
@@ -564,6 +592,99 @@ def robot_activate(req: RobotRequest):
         return {"ok": False, "error": "trading.py not available"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+@app.get("/agents/custom")
+def get_custom_agents():
+    try:
+        import sqlite3
+        db = sqlite3.connect("core/brain.db")
+        rows = db.execute("SELECT id, name, task, enabled, created_at FROM custom_agents ORDER BY id").fetchall()
+        db.close()
+        return {"agents": [{"id": r[0], "name": r[1], "task": r[2], "enabled": bool(r[3]), "created_at": r[4]} for r in rows]}
+    except Exception as e:
+        return {"agents": [], "error": str(e)}
+
+@app.post("/agents/custom")
+def save_custom_agent(body: dict):
+    try:
+        import sqlite3
+        from datetime import datetime
+        name = body.get("name", "").strip()
+        task = body.get("task", "").strip()
+        if not name or not task:
+            raise HTTPException(status_code=400, detail="name and task required")
+        db = sqlite3.connect("core/brain.db")
+        db.execute("""
+            INSERT INTO custom_agents (name, task, enabled, created_at, updated_at)
+            VALUES (?, ?, 1, ?, ?)
+            ON CONFLICT(name) DO UPDATE SET task=excluded.task, updated_at=excluded.updated_at
+        """, (name, task, datetime.utcnow().isoformat(), datetime.utcnow().isoformat()))
+        db.commit()
+        db.close()
+        return {"ok": True, "name": name}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/agents/custom/code")
+def save_custom_agent_code(body: dict):
+    """Save custom Python agent code to agents/trading/custom_<name>.py"""
+    name = body.get("name", "").strip().replace(" ", "_").lower()
+    code = body.get("code", "").strip()
+    if not name or not code:
+        raise HTTPException(status_code=400, detail="name and code required")
+    # Basic safety check — no imports of dangerous modules
+    blocked = ["os.system", "subprocess", "shutil.rmtree", "__import__('os')"]
+    for b in blocked:
+        if b in code:
+            raise HTTPException(status_code=400, detail=f"blocked: {b}")
+    path = f"agents/trading/custom_{name}.py"
+    try:
+        with open(path, "w") as f:
+            f.write(f"# Custom agent: {name}\n")
+            f.write(f"# Added via dashboard\n\n")
+            f.write(code)
+        return {"ok": True, "path": path, "msg": f"saved — restart bot to activate"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/agents/custom/code/{name}")
+def delete_custom_agent_code(name: str):
+    """Delete a custom agent file"""
+    path = f"agents/trading/custom_{name}.py"
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+            return {"ok": True, "msg": f"deleted {path}"}
+        return {"ok": False, "msg": "file not found"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/agents/custom/code")
+def list_custom_agent_code():
+    """List all custom agent files"""
+    import glob
+    files = glob.glob("agents/trading/custom_*.py")
+    agents = []
+    for f in files:
+        name = os.path.basename(f).replace("custom_", "").replace(".py", "")
+        with open(f) as fp:
+            content = fp.read()
+        agents.append({"name": name, "path": f, "code": content})
+    return {"agents": agents}
+
+@app.delete("/agents/custom/{name}")
+def delete_custom_agent(name: str):
+    try:
+        import sqlite3
+        db = sqlite3.connect("core/brain.db")
+        db.execute("DELETE FROM custom_agents WHERE name=?", (name,))
+        db.commit()
+        db.close()
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/robot/deactivate")
 def robot_deactivate(req: RobotRequest):

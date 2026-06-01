@@ -1,31 +1,9 @@
-# Environment — NEVER commit secrets
-.env
-
-# Database
-*.db
-*.sqlite3
-
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-.venv/
 venv/
-env/
-*.egg-info/
-dist/
-build/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
+__pycache__/
+*.pyc
+.env
+*.env
+secrets.py
+config_local.py
+brain/          # if it has sensitive signal data
 *.log
-logs/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.deb

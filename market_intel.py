@@ -4,7 +4,7 @@ Sources: CoinGecko, DexScreener, Helius, Solana RPC, Magic Eden
 """
 import os, requests, logging
 from dotenv import load_dotenv
-load_dotenv('/home/kazgar/BR0THA_bot/.env')
+load_dotenv('/home/kazgar/BR0THER-H00D/.env')
 
 logger = logging.getLogger(__name__)
 HELIUS_API_KEY = os.getenv("HELIUS_API_KEY","")

@@ -14,8 +14,10 @@ BrothaB0T — telegram_bot.py  v6.0
 ✅ BROTHA token live price + ecosystem links
 ✅ Secrets loaded from .env — nothing hardcoded
 """
+from emergency_agent import install_emergency_handler
 from dotenv import load_dotenv
-load_dotenv(dotenv_path="/home/kazgar/BR0THA_bot/.env")
+load_dotenv(dotenv_path="/home/kazgar/BR0THER-H00D/.env")
+install_emergency_handler()
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -37,6 +39,7 @@ import secrets
 import subprocess
 
 import psutil
+from emergency_agent import install_emergency_handler
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
